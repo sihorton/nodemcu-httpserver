@@ -14,7 +14,7 @@ return function (port)
          -- of data in order to avoid overflowing the mcu's buffer.
          local connectionThread
 
-         local function onGet(connection, uri)
+         local function onGet(connection, uri, payload)
             collectgarbage()
             local fileServeFunction = nil
             if #(uri.file) > 32 then
@@ -28,7 +28,12 @@ return function (port)
                   uri.args = {code = 404, errorString = "Not Found"}
                   fileServeFunction = dofile("httpserver-error.lc")
                elseif uri.isScript then
-                  fileServeFunction = dofile(uri.file)
+					if (payload ~= nil) then
+						uri.args["__post"] = payload
+						fileServeFunction = dofile(uri.file)
+					else
+						fileServeFunction = dofile(uri.file)
+					end
                else
                   uri.args = {file = uri.file, ext = uri.ext}
                   fileServeFunction = dofile("httpserver-static.lc")
@@ -45,7 +50,9 @@ return function (port)
             local req = dofile("httpserver-request.lc")(payload)
             print("Requested URI: " .. req.request)
             if req.methodIsValid and req.method == "GET" then
-               onGet(connection, req.uri)
+               onGet(connection, req.uri, nil)
+			elseif req.method == "POST" then
+				onGet(connection, req.uri, payload)
             else
                local args = {}
                local fileServeFunction = dofile("httpserver-error.lc")
